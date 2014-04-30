@@ -143,6 +143,7 @@ function PlayingTeam:OnInitialized()
     self.timeSinceLastRTUpdate = Shared.GetTime()
     
     self.teamResources = 0
+    PrintToLog("PlayingTeam:OnInitialized - self.teamResources = %s", self.teamResources)
     self.totalTeamResourcesCollected = 0
     self:AddTeamResources(kPlayingTeamInitialTeamRes)
     
@@ -499,6 +500,7 @@ function PlayingTeam:AddTeamResources(amount, isIncome)
         self.totalTeamResourcesCollected = self.totalTeamResourcesCollected + amount
     end
     
+    PrintToLog("in Function PlayingTeam:AddTeamResources - self.teamResources = %s", self.teamResources)
     self:SetTeamResources(self.teamResources + amount)
     
 end
