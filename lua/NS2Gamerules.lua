@@ -28,6 +28,9 @@ local kTimeToReadyRoom = 8
 local kPauseToSocializeBeforeMapcycle = 30
 local kGameStartMessageInterval = 10
 
+//SoulRider Extra Variables
+local kGameLength = 600 //Round time in seconds
+
 
 ////////////
 // Server //

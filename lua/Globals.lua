@@ -10,6 +10,10 @@ Script.Load("lua/Utility.lua")
 //ExoFall
 kGameScale = 0.35
 
+// Used for cross team win scenarios
+kTeamWin = enum( { 'None', 'Team1Win', 'Team2Win', 'TheyDraw' }) 
+
+
 
 kMaxPlayerSkill = 1000
 kMaxPlayerLevel = 100
@@ -89,7 +93,7 @@ kTeam2Type = kAlienTeamType
 kTeam1Name = "Frontiersmen"
 kTeam2Name = "Kharaa"
 kSpectatorTeamName = "Ready room"
-kDefaultPlayerName = "NSPlayer"
+kDefaultPlayerName = "Avatar"
 
 kDefaultWaypointGroup = "GroundWaypoints"
 kAirWaypointsGroup = "AirWaypoints"
