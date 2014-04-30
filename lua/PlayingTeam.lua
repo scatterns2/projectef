@@ -498,7 +498,7 @@ function PlayingTeam:AddTeamResources(amount, isIncome)
     if amount > 0 and isIncome then
         self.totalTeamResourcesCollected = self.totalTeamResourcesCollected + amount
     end
-    
+
     self:SetTeamResources(self.teamResources + amount)
     
 end
@@ -509,7 +509,7 @@ end
 
 function PlayingTeam:GetHasTeamLost()
 
-    if GetGamerules():GetGameStarted() and not Shared.GetCheatsEnabled() then
+    /*if GetGamerules():GetGameStarted() and not Shared.GetCheatsEnabled() then
     
         // Team can't respawn or last Command Station or Hive destroyed
         local activePlayers = self:GetHasActivePlayers()
@@ -525,7 +525,7 @@ function PlayingTeam:GetHasTeamLost()
             
         end
         
-    end
+    end*/
     
     return false
     

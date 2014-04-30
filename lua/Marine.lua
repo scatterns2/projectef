@@ -115,6 +115,9 @@ Marine.kAirStrafeWeight = 2
 
 //ExoFall Variables
 local kViewOffsetHeight = 1.7
+// Percentage change in height when full crouched
+local kCrouchShrinkAmount = 0.7
+local kExtentsCrouchShrinkAmount = 0.5
 
 PrecacheAsset("models/marine/rifle/rifle_shell_01.dds")
 PrecacheAsset("models/marine/rifle/rifle_shell_01_normal.dds")
@@ -940,6 +943,14 @@ end
 
 function Marine:GetMaxViewOffsetHeight()
     return kViewOffsetHeight * kGameScale
+end
+
+function Marine:GetCrouchShrinkAmount()
+    return kCrouchShrinkAmount * kGameScale
+end
+
+function Marine:GetExtentsCrouchShrinkAmount()
+    return kExtentsCrouchShrinkAmount * kGameScale
 end
 
 

@@ -28,6 +28,9 @@ local kTimeToReadyRoom = 8
 local kPauseToSocializeBeforeMapcycle = 30
 local kGameStartMessageInterval = 10
 
+//SoulRider Extra Variables
+local kGameLength = 600 //Round time in seconds
+
 
 ////////////
 // Server //
@@ -74,6 +77,7 @@ if Server then
             
                 PostGameViz("Game started")
                 self.gameStartTime = Shared.GetTime()
+                kGameStartTime = self.gameStartTime
                 
                 self.gameInfo:SetStartTime(self.gameStartTime)
                 
@@ -305,15 +309,6 @@ if Server then
 
     end
 
-    // logs out any players currently as the commander
-    function NS2Gamerules:LogoutCommanders()
-
-        for index, entity in ientitylist(Shared.GetEntitiesWithClassname("CommandStructure")) do
-            entity:Logout()
-        end
-        
-    end
-     
     /**
      * Starts a new game by resetting the map and all of the players. Keep everyone on current teams (readyroom, playing teams, etc.) but 
      * respawn playing players.
@@ -321,15 +316,7 @@ if Server then
     function NS2Gamerules:ResetGame()
     
         TournamentModeOnReset()
-    
-        // save commanders for later re-login
-        local team1CommanderClientIndex = self.team1:GetCommander() and self.team1:GetCommander().clientIndex or nil
-        local team2CommanderClientIndex = self.team2:GetCommander() and self.team2:GetCommander().clientIndex or nil
-        
-        // Cleanup any peeps currently in the commander seat by logging them out
-        // have to do this before we start destroying stuff.
-        self:LogoutCommanders()
-        
+          
         // Destroy any map entities that are still around
         DestroyLiveMapEntities()
         
@@ -382,7 +369,8 @@ if Server then
             end       
             
         end
-             
+        
+		self.team1:ResetPreservePlayers()     
         self.team2:ResetPreservePlayers()
         self.worldTeam:ResetPreservePlayers()
         self.spectatorTeam:ResetPreservePlayers()    
@@ -392,27 +380,8 @@ if Server then
         self.team2:ReplaceRespawnAllPlayers()
         
         // Create team specific entities
-        local commandStructure1 = self.team1:ResetTeam()
-        local commandStructure2 = self.team2:ResetTeam()
-        
-        // login the commanders again
-        local function LoginCommander(commandStructure, team, clientIndex)
-            if commandStructure and clientIndex then
-                for i,player in ipairs(team:GetPlayers()) do
-                    if player.clientIndex == clientIndex then
-                        // make up for not manually moving to CS and using it
-                        commandStructure.occupied = true
-                        player:SetOrigin(commandStructure:GetDefaultEntryOrigin())
-                        player:SetResources(kCommanderInitialIndivRes)
-                        commandStructure:LoginPlayer(player)
-                        break
-                    end
-                end 
-            end
-        end
-        
-        LoginCommander(commandStructure1, self.team1, team1CommanderClientIndex)
-        LoginCommander(commandStructure2, self.team2, team2CommanderClientIndex)
+        self.team1:ResetTeam()
+        self.team2:ResetTeam()
         
         // Create living map entities fresh
         CreateLiveMapEntities()
@@ -608,10 +577,6 @@ if Server then
         
             if self.timeSinceGameStateChanged >= kTimeToReadyRoom then
             
-                // Force the commanders to logout before we spawn people
-                // in the ready room
-                self:LogoutCommanders()
-        
                 // Set all players to ready room team
                 local function SetReadyRoomTeam(player)
                     player:SetCameraDistance(0)
@@ -722,55 +687,7 @@ if Server then
         end
         
     end
-    
-    local function CheckForNoCommander(self, onTeam, commanderType)
-
-        self.noCommanderStartTime = self.noCommanderStartTime or { }
         
-        if not self:GetGameStarted() then
-            self.noCommanderStartTime[commanderType] = nil
-        else
-        
-            local commanderExists = Shared.GetEntitiesWithClassname(commanderType):GetSize() ~= 0
-            
-            if commanderExists then
-                self.noCommanderStartTime[commanderType] = nil
-            elseif not self.noCommanderStartTime[commanderType] then
-                self.noCommanderStartTime[commanderType] = Shared.GetTime()
-            elseif Shared.GetTime() - self.noCommanderStartTime[commanderType] >= kSendNoCommanderMessageRate then
-            
-                self.noCommanderStartTime[commanderType] = nil
-                SendTeamMessage(onTeam, kTeamMessageTypes.NoCommander)
-                
-            end
-            
-        end
-        
-    end
-    
-    local function KillEnemiesNearCommandStructureInPreGame(self, timePassed)
-    
-        if self:GetGameState() == kGameState.NotStarted then
-        
-            local commandStations = Shared.GetEntitiesWithClassname("CommandStructure")
-            for _, ent in ientitylist(commandStations) do
-            
-                local enemyPlayers = GetEntitiesForTeam("Player", GetEnemyTeamNumber(ent:GetTeamNumber()))
-                for e = 1, #enemyPlayers do
-                
-                    local enemy = enemyPlayers[e]
-                    if enemy:GetDistance(ent) <= 5 then
-                        enemy:TakeDamage(25 * timePassed, nil, nil, nil, nil, 0, 25 * timePassed, kDamageType.Normal)
-                    end
-                    
-                end
-                
-            end
-            
-        end
-        
-    end
-    
     local kPlayerSkillUpdateRate = 10
     local function UpdatePlayerSkill(self)
     
@@ -841,11 +758,6 @@ if Server then
                 
                 self:UpdatePings()
                 self:UpdateHealth()
-                self:UpdateTechPoints()
-                
-                CheckForNoCommander(self, self.team1, "MarineCommander")
-                CheckForNoCommander(self, self.team2, "AlienCommander")
-                KillEnemiesNearCommandStructureInPreGame(self, timePassed)
                 
             end
 
@@ -987,7 +899,7 @@ if Server then
     end
     
     function NS2Gamerules:GetCanSpawnImmediately()
-        return not self:GetGameStarted() or Shared.GetCheatsEnabled() or (Shared.GetTime() < (self.gameStartTime + kFreeSpawnTime))
+        return true
     end
     
     // Returns bool for success and bool if we've played in the game already.
@@ -1045,11 +957,7 @@ if Server then
         end
         
         // Join new team
-        if player and player:GetTeamNumber() ~= newTeamNumber or force then        
-            
-            if player:isa("Commander") then
-                OnCommanderLogOut(player)
-            end        
+        if player and player:GetTeamNumber() ~= newTeamNumber or force then               
             
             if not Shared.GetCheatsEnabled() and self:GetGameStarted() and newTeamNumber ~= kTeamReadyRoom then
                 player.spawnBlockTime = Shared.GetTime() + kSuicideDelay
@@ -1067,11 +975,6 @@ if Server then
             if newTeamNumber == kTeamReadyRoom or self:GetCanSpawnImmediately() or force then
             
                 success, newPlayer = team:ReplaceRespawnPlayer(player, nil, nil)
-                
-                local teamTechPoint = team.GetInitialTechPoint and team:GetInitialTechPoint()
-                if teamTechPoint then
-                    newPlayer:OnInitialSpawn(teamTechPoint:GetOrigin())
-                end
                 
             else
             
@@ -1183,12 +1086,11 @@ if Server then
     function NS2Gamerules:CheckGameStart()
     
         if self:GetGameState() == kGameState.NotStarted or self:GetGameState() == kGameState.PreGame then
-        
-            // Start pre-game when both teams have commanders or when once side does if cheats are enabled
-            local team1Commander = self.team1:GetCommander()
-            local team2Commander = self.team2:GetCommander()
             
-            if ((team1Commander and team2Commander) or Shared.GetCheatsEnabled()) and (not self.tournamentMode or self.teamsReady) then
+            local team1Players = self.team1:GetNumPlayers()
+            local team2Players = self.team2:GetNumPlayers()
+           
+            if ((team1Players > 0 and team2Players > 0) or Shared.GetCheatsEnabled()) and (not self.tournamentMode or self.teamsReady) then
             
                 if self:GetGameState() == kGameState.NotStarted then
                     self:SetGameState(kGameState.PreGame)
@@ -1198,16 +1100,7 @@ if Server then
             
                 if self:GetGameState() == kGameState.PreGame then
                     self:SetGameState(kGameState.NotStarted)
-                end
-                
-                if (not team1Commander or not team2Commander) and not self.nextGameStartMessageTime or Shared.GetTime() > self.nextGameStartMessageTime then
-                
-                    SendTeamMessage(self.team1, kTeamMessageTypes.GameStartCommanders)
-                    SendTeamMessage(self.team2, kTeamMessageTypes.GameStartCommanders)
-                    self.nextGameStartMessageTime = Shared.GetTime() + kGameStartMessageInterval
-                    
-                end
-                
+                end               
             end
             
         end
@@ -1283,7 +1176,9 @@ if Server then
                 local team2Lost = self.team2:GetHasTeamLost()
                 local team1Won = self.team1:GetHasTeamWon()
                 local team2Won = self.team2:GetHasTeamWon()
-                
+                if self.GetRoundTimerExpired() then
+                    Team:GetHasTeamWon(self.team1, self.team2)
+                end
                 -- Check for auto-concede if neither team lost.
                 if not team1Lost and not team2Lost then
                     team1Lost, team2Lost = CheckAutoConcede(self)
@@ -1297,6 +1192,15 @@ if Server then
                     self:EndGame(self.team1)
                 end
                 
+                if self:GetRoundTimerExpired() then
+                    if  kTeamWin == "TheyDraw" then
+                        self:DrawGame()
+                    elseif kTeamWin == "Team2Win" then
+                        self:EndGame(self.team2)
+                    elseif kTeamWin == "Team1Win" then
+                        self:EndGame(self.team1)
+                    end                
+                end
                 self.timeLastGameEndCheck = Shared.GetTime()
                 
             end
@@ -1513,6 +1417,15 @@ end
 
 function NS2Gamerules:GetGameStarted()
     return self.gameState == kGameState.Started
+end
+// PG function to confirm Round Timer has finished
+function NS2Gamerules:GetRoundTimerExpired()
+    local timeCheck = Shared.GetTime()
+
+    if (kGameStartTime + (kGameLength)) < timeCheck then
+        return true
+    end
+    return false
 end
 
 Shared.LinkClassToMap("NS2Gamerules", NS2Gamerules.kMapName, { })
